@@ -5,7 +5,7 @@ This whole setup should work fine on Minikube or any other flavour of Kubernetes
 ## 1. Cluster Setup
 1. Setup a microk8s cluster using [this script](./k8s/bootstrap/microk8s_setup.sh)
 2. Add nodes to the microk8s cluster using the output of the command `microk8s add-node`
-3. Setup argocd by running the [argocd installation script](./k8s/bootstrap/setup_argocd.sh). `bash ./k8s/bootstrap/setup_argocd.sh` should get the job done.
+3. Setup argocd by running the [argocd installation script](./k8s/bootstrap/argocd_setup.sh). `bash ./k8s/bootstrap/argocd_setup.sh` should get the job done.
 4. To view ArgoCD UI, run the following to obtain admin secret and setup port-forwarding
 ```shell
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
@@ -93,18 +93,18 @@ CREATE DATABASE mlflow;
 
 ## 4. Kube-Ray & RayCluster
 1. To setup KubeRay Operator, simply run `kubectl apply -f k8s/argocd_apps/kuberay-operator.yaml`
-2. Navigate to ArgoCD UI and click on "Sync">"Syncrhonize"
+2. Navigate to ArgoCD UI and click on "Sync">"Synchronize"
 3. Observe to ensure that everything gets setup correctly
 ![](assets/screenshots/rayoperator_argocd.png)
 4. Next, install a RayCluster by running `kubectl apply -f k8s/argocd_apps/raycluster.yaml`
-5. Navigate to ArgoCD UI and click on "Sync">"Syncrhonize"
+5. Navigate to ArgoCD UI and click on "Sync">"Synchronize"
 6. Observe to ensure that everything gets setup correctly
 ![](assets/screenshots/raycluster_argocd.png)
 
 
 ## 5. ArgoWorkflows Setup
 1. To setup ArgoWF, simply run `kubectl apply -f k8s/argocd_apps/argowf.yaml`
-2. Navigate to ArgoCD UI and click on "Sync">"Syncrhonize"
+2. Navigate to ArgoCD UI and click on "Sync">"Synchronize"
 3. Observe to ensure that everything gets setup correctly
 ![](assets/screenshots/argowf_argocd.png)
 4. Run the following command to obtain admin token required for login in the coming steps
