@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mlflow
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://community-charts.github.io/helm-charts'
+    targetRevision: 0.7.19
+    helm:
+      valueFiles:
+        - values.yaml
+      parameters:
+        - name: artifactRoot.s3.bucket
+          value: mlflow
+        - name: backendStore.postgres.password
+          value: password
+        - name: backendStore.postgres.enabled
+          value: 'true'
+        - name: backendStore.postgres.user
+          value: postgres
+        - name: backendStore.postgres.host
+          value: postgres-postgresql.postgresql.svc
+        - name: backendStore.postgres.database
+          value: mlflow
+        - name: artifactRoot.s3.enabled
+          value: 'true'
+        - name: artifactRoot.s3.awsAccessKeyId
+          value: placeholder
+        - name: artifactRoot.s3.awsSecretAccessKey
+          value: placeholder
+        - name: image.repository
+          value: aishwaryaprabhat/mlflow
+        - name: image.tag
+          value: v2.12.1
+      values: |-
+        extraEnvVars:
+          MLFLOW_S3_ENDPOINT_URL: http://minio.minio.svc:9000
+    chart: mlflow
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: mlflow
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
