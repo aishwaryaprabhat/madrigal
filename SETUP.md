@@ -96,7 +96,7 @@ CREATE DATABASE mlflow;
 2. Navigate to ArgoCD UI and click on "Sync">"Synchronize"
 3. Observe to ensure that everything gets setup correctly
 ![](assets/screenshots/rayoperator_argocd.png)
-4. Next, install a RayCluster by running `kubectl apply -f k8s/argocd_apps/raycluster.yaml`
+4. Next, install a RayCluster by running `kubectl apply -f k8s/argocd_apps/raycluster.yaml`. Take a look at the image being used in this yaml file. Ensure that the python version is the desired version. The one being used here is py311 because later versions of garak with bufixes do not work with py39.
 5. Navigate to ArgoCD UI and click on "Sync">"Synchronize"
 6. Observe to ensure that everything gets setup correctly
 ![](assets/screenshots/raycluster_argocd.png)

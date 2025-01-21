@@ -7,13 +7,13 @@ spec:
   project: default
   source:
     repoURL: 'https://ray-project.github.io/kuberay-helm/'
-    targetRevision: 1.1.0
+    targetRevision: 1.2.2
     helm:
       valueFiles:
         - values.yaml
       parameters:
         - name: image.tag
-          value: '006c83-py311'
+          value: '2.40.0.160e35-py311'
         - name: worker.maxReplicas
           value: '5'
         - name: worker.minReplicas

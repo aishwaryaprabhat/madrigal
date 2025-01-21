@@ -15,6 +15,7 @@ kubectl -n postgresql port-forward svc/postgres-postgresql 5432 &
 kubectl -n raycluster port-forward svc/raycluster-kuberay-head-svc 10001 &
 kubectl -n raycluster port-forward svc/raycluster-kuberay-head-svc 8265 &
 kubectl -n kubeflow port-forward svc/ml-pipeline-ui 8001:80 &
+kubectl -n kubeflow port-forward svc/ml-pipeline 8888 &
 
 conda activate rayvenv
 
