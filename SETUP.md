@@ -101,8 +101,17 @@ CREATE DATABASE mlflow;
 6. Observe to ensure that everything gets setup correctly
 ![](assets/screenshots/raycluster_argocd.png)
 
+## 5. Kubeflow Pipelines Setup
+1. To setup Kubeflow Pipelines, simply run `kubectl apply -f k8s/argocd_apps/kfp.yaml`
+2. Navigate to ArgoCD UI and click on "Sync">"Synchronize"
+3. Observe to ensure that everything gets setup correctly
+![](assets/screenshots/kfp_argocd.png)
+4. To view the KFP UI, port-forward using `kubectl -n kubeflow port-forward svc/ml-pipeline-ui 8001:80`
+![](assets/screenshots/kfp_ui.png)
+5. You can consider running the example pipeline using the UI to ensure everything is running smoothly
+![](./assets/screenshots/kfp_run.png)
 
-## 5. ArgoWorkflows Setup
+## 6. [Optional] ArgoWorkflows Setup
 1. To setup ArgoWF, simply run `kubectl apply -f k8s/argocd_apps/argowf.yaml`
 2. Navigate to ArgoCD UI and click on "Sync">"Synchronize"
 3. Observe to ensure that everything gets setup correctly

@@ -14,6 +14,7 @@ kubectl -n argowf port-forward svc/argowf-argo-workflows-server 2746 &
 kubectl -n postgresql port-forward svc/postgres-postgresql 5432 &
 kubectl -n raycluster port-forward svc/raycluster-kuberay-head-svc 10001 &
 kubectl -n raycluster port-forward svc/raycluster-kuberay-head-svc 8265 &
+kubectl -n kubeflow port-forward svc/ml-pipeline-ui 8001:80 &
 
 conda activate rayvenv
 
