@@ -7,15 +7,12 @@ for port in 8080 9001 9000 5000 2746 8081 8082 10001 8265; do
 done
 
 kubectl -n argocd port-forward svc/argocd-server 8080:80 &
-kubectl -n minio port-forward svc/minio-console 9001 &
-kubectl -n minio port-forward svc/minio 9000 &
-kubectl -n mlflow port-forward svc/mlflow 5000 &
-kubectl -n argowf port-forward svc/argowf-argo-workflows-server 2746 &
-kubectl -n postgresql port-forward svc/postgres-postgresql 5432 &
+kubectl -n mlflow port-forward svc/mlflow-tracking 5000:80 &
 kubectl -n raycluster port-forward svc/raycluster-kuberay-head-svc 10001 &
 kubectl -n raycluster port-forward svc/raycluster-kuberay-head-svc 8265 &
 kubectl -n kubeflow port-forward svc/ml-pipeline-ui 8001:80 &
 kubectl -n kubeflow port-forward svc/ml-pipeline 8888 &
+kubectl -n argowf port-forward svc/argowf-argo-workflows-server 2746 &
 
 conda activate rayvenv
 

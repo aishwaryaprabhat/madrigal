@@ -6,40 +6,27 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://community-charts.github.io/helm-charts'
-    targetRevision: 0.7.19
+    repoURL: https://github.com/bitnami/charts.git
+    path: bitnami/mlflow
+    targetRevision: HEAD
     helm:
-      valueFiles:
-        - values.yaml
       parameters:
-        - name: artifactRoot.s3.bucket
-          value: mlflow
-        - name: backendStore.postgres.password
-          value: password
-        - name: backendStore.postgres.enabled
-          value: 'true'
-        - name: backendStore.postgres.user
-          value: postgres
-        - name: backendStore.postgres.host
-          value: postgres-postgresql.postgresql.svc
-        - name: backendStore.postgres.database
-          value: mlflow
-        - name: artifactRoot.s3.enabled
-          value: 'true'
-        - name: artifactRoot.s3.awsAccessKeyId
-          value: placeholder
-        - name: artifactRoot.s3.awsSecretAccessKey
-          value: placeholder
-        - name: image.repository
-          value: aishwaryaprabhat/mlflow
+        - name: tracking.service.type
+          value: ClusterIP
+        - name: tracking.auth.enabled
+          value: 'false'
         - name: image.tag
-          value: v2.12.1
-      values: |-
-        extraEnvVars:
-          MLFLOW_S3_ENDPOINT_URL: http://minio.minio.svc:9000
-    chart: mlflow
+          value: 2.16.2-debian-12-r3
+        - name: tracking.extraEnvVars[0].name
+          value: GUNICORN_CMD_ARGS
+        - name: tracking.extraEnvVars[0].value
+          value: "--timeout 600 --workers 4 --threads 8"
+        - name: tracking.resources.requests.memory
+          value: "4Gi"
+        - name: tracking.resources.limits.memory
+          value: "8Gi"
   destination:
-    server: 'https://kubernetes.default.svc'
+    server: https://kubernetes.default.svc
     namespace: mlflow
   syncPolicy:
     syncOptions:
