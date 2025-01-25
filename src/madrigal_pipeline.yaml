@@ -48,8 +48,9 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef post_process() -> str:\n    return \"Send an email alert or sth?\"\
-          \n\n"
+          \ *\n\ndef post_process() -> str:\n    \"\"\"\n    Final step that could\
+          \ handle notifications, alerts, or other tasks.\n    \"\"\"\n    return\
+          \ \"Send an email alert or sth?\"\n\n"
         image: python:3.11-slim
     exec-preflight-checks:
       container:
@@ -78,20 +79,24 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef preflight_checks() -> str:\n    \"\"\"Verifies connectivity to\
-          \ Ray cluster and MLflow before proceeding.\"\"\"\n    import ray\n    import\
-          \ mlflow\n    import requests\n    RAY_CLUSTER_ADDRESS = \"ray://raycluster-kuberay-head-svc.raycluster.svc:10001\"\
-          \n    MLFLOW_ADDRESS = 'http://mlflow-tracking.mlflow.svc'\n\n    try:\n\
-          \        ray.init(address=RAY_CLUSTER_ADDRESS, log_to_driver=False)\n  \
-          \      if not ray.is_initialized():\n            raise ConnectionError(\"\
+          \ *\n\ndef preflight_checks() -> str:\n    \"\"\"\n    Verifies connectivity\
+          \ to Ray cluster and MLflow before proceeding.\n    \"\"\"\n    import ray\n\
+          \    import mlflow\n    import requests\n\n    # Addresses for Ray and MLflow\n\
+          \    RAY_CLUSTER_ADDRESS = \"ray://raycluster-kuberay-head-svc.raycluster.svc:10001\"\
+          \n    MLFLOW_ADDRESS = 'http://mlflow-tracking.mlflow.svc'\n\n    # ---------------------------------------------------------\n\
+          \    # Verify Ray cluster connectivity\n    # ---------------------------------------------------------\n\
+          \    try:\n        ray.init(address=RAY_CLUSTER_ADDRESS, log_to_driver=False)\n\
+          \        if not ray.is_initialized():\n            raise ConnectionError(\"\
           Could not connect to Ray cluster\")\n        print(\"Successfully connected\
           \ to Ray cluster\")\n    except Exception as e:\n        raise RuntimeError(f\"\
-          Failed to connect to Ray: {e}\")\n    finally:\n        ray.shutdown()\n\
+          Failed to connect to Ray: {e}\")\n    finally:\n        # Always shutdown\
+          \ Ray after the check\n        ray.shutdown()\n\n    # ---------------------------------------------------------\n\
+          \    # Verify MLflow connectivity\n    # ---------------------------------------------------------\n\
           \    try:\n        response = requests.get(MLFLOW_ADDRESS)\n        if response.status_code\
           \ != 200:\n            raise ConnectionError(\"MLflow server is not reachable\"\
           )\n        print(\"Successfully connected to MLflow server\")\n    except\
           \ Exception as e:\n        raise RuntimeError(f\"Failed to connect to MLflow:\
-          \ {e}\")\n    return \"Connectivity verified\"\n\n"
+          \ {e}\")\n\n    return \"Connectivity verified\"\n\n"
         image: python:3.11-slim
     exec-run-distrt:
       container:
@@ -120,14 +125,16 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef run_distrt() -> str:\n    \"\"\"Initializes Ray, creates custom_generator.py,\
-          \ and submits Ray tasks inside the Kubeflow step.\"\"\"\n    import os\n\
-          \    import ray\n    import mlflow\n    import sys\n    from datetime import\
-          \ datetime\n    import json\n\n    working_directory = \"/tmp/ray_workdir\"\
-          \n    os.makedirs(working_directory, exist_ok=True)\n\n    # Define the\
-          \ content of custom_generator.py\n    custom_generator_code = \"\"\"\nimport\
-          \ torch\nfrom transformers import AutoModelForCausalLM, AutoTokenizer\n\
-          import mlflow\n\ndef download_mlflow_model(experiment_name='HuggingFaceTB',\
+          \ *\n\ndef run_distrt() -> str:\n    \"\"\"\n    Initializes Ray, creates\
+          \ custom_generator.py, and submits Ray tasks inside the Kubeflow step.\n\
+          \    \"\"\"\n    import os\n    import ray\n    import mlflow\n    import\
+          \ sys\n    from datetime import datetime\n    import json\n\n    # ---------------------------------------------------------\n\
+          \    # Prepare working directory\n    # ---------------------------------------------------------\n\
+          \    working_directory = \"/tmp/ray_workdir\"\n    os.makedirs(working_directory,\
+          \ exist_ok=True)\n\n    # ---------------------------------------------------------\n\
+          \    # custom_generator.py code for model inference\n    # ---------------------------------------------------------\n\
+          \    custom_generator_code = \"\"\"\nimport torch\nfrom transformers import\
+          \ AutoModelForCausalLM, AutoTokenizer\nimport mlflow\n\ndef download_mlflow_model(experiment_name='HuggingFaceTB',\
           \ dest_path='SmolLM2-135M-Instruct'):\n    client = mlflow.tracking.MlflowClient()\n\
           \    experiment = client.get_experiment_by_name(experiment_name)\n    runs\
           \ = client.search_runs(experiment.experiment_id, order_by=[\"start_time\
@@ -144,58 +151,72 @@ deploymentSpec:
           \ for generating responses!')\n    inputs = tokenizer(prompt, return_tensors=\"\
           pt\")\n    with torch.no_grad():\n        output_tokens = model.generate(**inputs,\
           \ max_length=100)\n    return [tokenizer.decode(output_tokens[0], skip_special_tokens=True)]\n\
-          \    \"\"\"\n\n    generator_file_path = os.path.join(working_directory,\
-          \ \"custom_generator.py\")\n    with open(generator_file_path, \"w\") as\
-          \ f:\n        f.write(custom_generator_code)\n\n\n    RAY_CLUSTER_ADDRESS\
-          \ = \"ray://raycluster-kuberay-head-svc.raycluster.svc:10001\"\n    MLFLOW_ADDRESS\
-          \ = 'http://mlflow-tracking.mlflow.svc'\n    os.environ['MLFLOW_TRACKING_URI']\
+          \"\"\"\n\n    # Write the code to a local file in the container\n    generator_file_path\
+          \ = os.path.join(working_directory, \"custom_generator.py\")\n    with open(generator_file_path,\
+          \ \"w\") as f:\n        f.write(custom_generator_code)\n\n    # ---------------------------------------------------------\n\
+          \    # Environment variables for Ray / MLflow\n    # ---------------------------------------------------------\n\
+          \    RAY_CLUSTER_ADDRESS = \"ray://raycluster-kuberay-head-svc.raycluster.svc:10001\"\
+          \n    MLFLOW_ADDRESS = 'http://mlflow-tracking.mlflow.svc'\n    os.environ['MLFLOW_TRACKING_URI']\
           \ = MLFLOW_ADDRESS\n    os.environ[\"RAY_CHDIR_TO_TRIAL_DIR\"] = \"0\"\n\
-          \n    ray.shutdown()\n    ray.init(\n        address=RAY_CLUSTER_ADDRESS,\n\
-          \        log_to_driver=False,\n        runtime_env={\n            \"pip\"\
-          : [\"torch\", \"transformers\", \"garak\", \"mlflow\"],\n            \"\
-          env_vars\": {\n                'MLFLOW_TRACKING_URI': MLFLOW_ADDRESS\n \
-          \           },\n            \"working_dir\": working_directory\n       \
-          \ }\n    )\n\n    def combine_jsonl_from_dir(directory, output_file):\n\
-          \        jsonl_files = [f for f in os.listdir(directory) if f.endswith(\"\
-          report.jsonl\")]  # Get all JSONL files\n        jsonl_files = [os.path.join(directory,\
-          \ f) for f in jsonl_files]  # Full file paths\n        if not jsonl_files:\n\
-          \            print(\"No JSONL files found in the directory.\")\n       \
-          \     return\n        with open(output_file, \"w\") as outfile:\n      \
-          \      for file in jsonl_files:\n                with open(file, \"r\")\
-          \ as infile:\n                    for line in infile:\n                \
-          \        line = line.strip()  # Remove extra whitespace\n              \
-          \          if not line:  # Ignore empty lines\n                        \
-          \    continue\n                        try:\n                          \
-          \  json.loads(line)  # Validate JSON\n                            outfile.write(line\
-          \ + \"\\n\")  # Ensure each JSON object is on a separate line\n        \
-          \                except json.JSONDecodeError as e:\n                   \
-          \         print(f\"Skipping malformed JSON in {file}: {e} \u2192 {line}\"\
-          )\n        print(f\"Combined {len(jsonl_files)} JSONL files into {output_file}\"\
-          )\n\n\n    # Define Ray tasks inside the Kubeflow step\n    @ray.remote\n\
-          \    def run_probe(probe_name, mlflow_runid):\n        \"\"\"Runs a single\
-          \ Garak probe and logs artifacts.\"\"\"\n        import garak.cli\n    \
-          \    garak_runs_dir = '/home/ray/.local/share/garak/garak_runs/'\n     \
-          \   cli_command = f'--parallel_requests 1 --model_type function --model_name\
-          \ generate_response --probes {probe_name}'\n        garak.cli.main(cli_command.split())\n\
-          \        with mlflow.start_run(run_id=mlflow_runid):\n            mlflow.log_artifacts(garak_runs_dir)\n\
-          \n    @ray.remote\n    def run_red_teaming(probes_list, mlflow_runid):\n\
-          \        \"\"\"Runs multiple Garak probes using Ray.\"\"\"\n        from\
-          \ garak.command import write_report_digest\n        futures = [run_probe.remote(probe_name,\
-          \ mlflow_runid) for probe_name in probes_list]\n        ray.get(futures)\n\
-          \        mlflow.artifacts.download_artifacts(run_id=mlflow_runid, dst_path='./combined_logs')\n\
-          \        combine_jsonl_from_dir('./combined_logs', 'combined_logs.jsonl')\n\
-          \        write_report_digest('combined_logs.jsonl', './final_report.html')\n\
-          \        print(os.listdir())\n        print(\"HTML contents writtten to\
-          \ final_report.html\")\n        with mlflow.start_run(run_id=mlflow_runid):\n\
-          \            mlflow.log_artifact('./final_report.html')\n\n\n    # Start\
-          \ MLflow experiment and submit Ray tasks\n    mlflow.set_experiment(\"garak_runs\"\
-          )\n    print(\"MLflow Debugging Information\")\n    print(f\"Tracking URI:\
-          \ {mlflow.get_tracking_uri()}\")\n    with mlflow.start_run(run_name=datetime.now().strftime(\"\
+          \n    # ---------------------------------------------------------\n    #\
+          \ Initialize Ray cluster connection\n    # ---------------------------------------------------------\n\
+          \    ray.shutdown()  # Ensure any previous Ray session is closed\n    ray.init(\n\
+          \        address=RAY_CLUSTER_ADDRESS,\n        log_to_driver=False,\n  \
+          \      runtime_env={\n            \"pip\": [\"torch\", \"transformers\"\
+          , \"garak\", \"mlflow\"],\n            \"env_vars\": {\n               \
+          \ 'MLFLOW_TRACKING_URI': MLFLOW_ADDRESS\n            },\n            \"\
+          working_dir\": working_directory\n        }\n    )\n\n    # ---------------------------------------------------------\n\
+          \    # Helper function to combine JSONL from multiple files\n    # ---------------------------------------------------------\n\
+          \    def combine_jsonl_from_dir(directory, output_file):\n        # Gather\
+          \ all JSONL files\n        jsonl_files = [f for f in os.listdir(directory)\
+          \ if f.endswith(\"report.jsonl\")]\n        jsonl_files = [os.path.join(directory,\
+          \ f) for f in jsonl_files]\n        if not jsonl_files:\n            print(\"\
+          No JSONL files found in the directory.\")\n            return\n\n      \
+          \  # Combine them into one file\n        with open(output_file, \"w\") as\
+          \ outfile:\n            for file in jsonl_files:\n                with open(file,\
+          \ \"r\") as infile:\n                    for line in infile:\n         \
+          \               line = line.strip()  # Remove extra whitespace\n       \
+          \                 if not line:  # Skip empty lines\n                   \
+          \         continue\n                        try:\n                     \
+          \       json.loads(line)  # Validate JSON\n                            outfile.write(line\
+          \ + \"\\n\")  # Write valid JSON lines\n                        except json.JSONDecodeError\
+          \ as e:\n                            print(f\"Skipping malformed JSON in\
+          \ {file}: {e} \u2192 {line}\")\n        print(f\"Combined {len(jsonl_files)}\
+          \ JSONL files into {output_file}\")\n\n    # ---------------------------------------------------------\n\
+          \    # Define Ray tasks within this step\n    # ---------------------------------------------------------\n\
+          \n    @ray.remote\n    def run_probe(probe_name, mlflow_runid):\n      \
+          \  \"\"\"\n        Runs a single Garak probe and logs artifacts to MLflow.\n\
+          \        \"\"\"\n        import garak.cli\n        garak_runs_dir = '/home/ray/.local/share/garak/garak_runs/'\n\
+          \n        # Construct the CLI command for Garak\n        cli_command = f'--parallel_requests\
+          \ 1 --model_type function --model_name generate_response --probes {probe_name}'\n\
+          \        garak.cli.main(cli_command.split())\n\n        # Log the artifacts\
+          \ from Garak to the same MLflow run\n        with mlflow.start_run(run_id=mlflow_runid):\n\
+          \            mlflow.log_artifacts(garak_runs_dir)\n\n    @ray.remote\n \
+          \   def run_red_teaming(probes_list, mlflow_runid):\n        \"\"\"\n  \
+          \      Runs multiple Garak probes using Ray, combines logs, and generates\
+          \ a final report.\n        \"\"\"\n        from garak.command import write_report_digest\n\
+          \n        # Dispatch each probe in parallel\n        futures = [run_probe.remote(probe_name,\
+          \ mlflow_runid) for probe_name in probes_list]\n\n        # Wait for all\
+          \ to complete\n        ray.get(futures)\n\n        # Download artifacts\
+          \ so we can combine logs\n        mlflow.artifacts.download_artifacts(run_id=mlflow_runid,\
+          \ dst_path='./combined_logs')\n\n        # Combine JSONL logs into a single\
+          \ file\n        combine_jsonl_from_dir('./combined_logs', 'combined_logs.jsonl')\n\
+          \n        # Generate a consolidated HTML report\n        write_report_digest('combined_logs.jsonl',\
+          \ './final_report.html')\n        print(os.listdir())\n        print(\"\
+          HTML contents written to final_report.html\")\n\n        # Log the final\
+          \ HTML report to MLflow\n        with mlflow.start_run(run_id=mlflow_runid):\n\
+          \            mlflow.log_artifact('./final_report.html')\n\n    # ---------------------------------------------------------\n\
+          \    # Start MLflow experiment and run distributed tasks\n    # ---------------------------------------------------------\n\
+          \    mlflow.set_experiment(\"garak_runs\")\n    print(\"MLflow Debugging\
+          \ Information\")\n    print(f\"Tracking URI: {mlflow.get_tracking_uri()}\"\
+          )\n\n    # Create a new MLflow run\n    with mlflow.start_run(run_name=datetime.now().strftime(\"\
           %Y-%m-%d_%H-%M-%S\")) as run:\n        print(f\"MLflow Run Started: {run.info.run_id}\"\
-          )\n        mlflow_runid = run.info.run_id\n        probes_list = ['grandma.Substances',\
-          \ 'grandma.Slurs', 'grandma.Win10', 'lmrc.Bullying', 'lmrc.Profanity']\n\
-          \        ray.get(run_red_teaming.remote(probes_list, mlflow_runid))\n\n\
-          \    return \"All done!\"\n\n"
+          )\n        mlflow_runid = run.info.run_id\n\n        # List of probes to\
+          \ run in parallel via Ray\n        probes_list = [\n            'grandma.Substances',\n\
+          \            'grandma.Slurs',\n            'grandma.Win10',\n          \
+          \  'lmrc.Bullying',\n            'lmrc.Profanity'\n        ]\n\n       \
+          \ # Execute red-teaming logic\n        ray.get(run_red_teaming.remote(probes_list,\
+          \ mlflow_runid))\n\n    return \"All done!\"\n\n"
         image: python:3.11-slim
 pipelineInfo:
   description: A pipeline that runs distributed GenAI Red Teaming
