@@ -9,6 +9,7 @@ def run_distrt() -> str:
     import mlflow
     import sys
     from datetime import datetime
+    import json
 
     working_directory = "/tmp/ray_workdir"
     os.makedirs(working_directory, exist_ok=True)
