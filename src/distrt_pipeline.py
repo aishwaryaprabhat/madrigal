@@ -1,6 +1,33 @@
 from kfp import dsl
 from kfp.dsl import component
 
+@component(base_image="python:3.11-slim", packages_to_install=["ray[default]==2.40.0", "mlflow", "requests"])
+def preflight_checks() -> str:
+    """Verifies connectivity to Ray cluster and MLflow before proceeding."""
+    import ray
+    import mlflow
+    import requests
+    RAY_CLUSTER_ADDRESS = "ray://raycluster-kuberay-head-svc.raycluster.svc:10001"
+    MLFLOW_ADDRESS = 'http://mlflow-tracking.mlflow.svc'
+    
+    try:
+        ray.init(address=RAY_CLUSTER_ADDRESS, log_to_driver=False)
+        if not ray.is_initialized():
+            raise ConnectionError("Could not connect to Ray cluster")
+        print("Successfully connected to Ray cluster")
+    except Exception as e:
+        raise RuntimeError(f"Failed to connect to Ray: {e}")
+    finally:
+        ray.shutdown()
+    try:
+        response = requests.get(MLFLOW_ADDRESS)
+        if response.status_code != 200:
+            raise ConnectionError("MLflow server is not reachable")
+        print("Successfully connected to MLflow server")
+    except Exception as e:
+        raise RuntimeError(f"Failed to connect to MLflow: {e}")
+    return "Connectivity verified"
+
 @component(base_image="python:3.11-slim", packages_to_install=["ray[default]==2.40.0", "mlflow"])
 def run_distrt() -> str:
     """Initializes Ray, creates custom_generator.py, and submits Ray tasks inside the Kubeflow step."""
@@ -82,10 +109,8 @@ def generate_response(prompt):
                 with open(file, "r") as infile:
                     for line in infile:
                         line = line.strip()  # Remove extra whitespace
-                        
                         if not line:  # Ignore empty lines
                             continue
-                        
                         try:
                             json.loads(line)  # Validate JSON
                             outfile.write(line + "\n")  # Ensure each JSON object is on a separate line
@@ -116,7 +141,8 @@ def generate_response(prompt):
         write_report_digest('combined_logs.jsonl', './final_report.html')
         print(os.listdir())
         print("HTML contents writtten to final_report.html")
-        mlflow.log_artifact('./final_report.html')
+        with mlflow.start_run(run_id=mlflow_runid):
+            mlflow.log_artifact('./final_report.html')
 
     
     # Start MLflow experiment and submit Ray tasks
@@ -133,11 +159,12 @@ def generate_response(prompt):
 
 @component(base_image="python:3.11-slim")
 def post_process() -> str:
-    return "All hail Ray!"
+    return "Send an email alert or sth?"
 
 @dsl.pipeline(name='madrigal_pipeline', description='A pipeline that runs distributed GenAI Red Teaming')
 def madrigal_pipeline():
-    init_task = run_distrt()
+    verify_task = preflight_checks()
+    init_task = run_distrt().after(verify_task)
     post_process().after(init_task)
 
 if __name__ == "__main__":

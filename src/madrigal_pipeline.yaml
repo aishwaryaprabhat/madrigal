@@ -8,6 +8,12 @@ components:
       parameters:
         Output:
           parameterType: STRING
+  comp-preflight-checks:
+    executorLabel: exec-preflight-checks
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRING
   comp-run-distrt:
     executorLabel: exec-run-distrt
     outputDefinitions:
@@ -42,7 +48,50 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef post_process() -> str:\n    return \"All hail Ray!\"\n\n"
+          \ *\n\ndef post_process() -> str:\n    return \"Send an email alert or sth?\"\
+          \n\n"
+        image: python:3.11-slim
+    exec-preflight-checks:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - preflight_checks
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.11.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'ray[default]==2.40.0'\
+          \ 'mlflow' 'requests' && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef preflight_checks() -> str:\n    \"\"\"Verifies connectivity to\
+          \ Ray cluster and MLflow before proceeding.\"\"\"\n    import ray\n    import\
+          \ mlflow\n    import requests\n    RAY_CLUSTER_ADDRESS = \"ray://raycluster-kuberay-head-svc.raycluster.svc:10001\"\
+          \n    MLFLOW_ADDRESS = 'http://mlflow-tracking.mlflow.svc'\n\n    try:\n\
+          \        ray.init(address=RAY_CLUSTER_ADDRESS, log_to_driver=False)\n  \
+          \      if not ray.is_initialized():\n            raise ConnectionError(\"\
+          Could not connect to Ray cluster\")\n        print(\"Successfully connected\
+          \ to Ray cluster\")\n    except Exception as e:\n        raise RuntimeError(f\"\
+          Failed to connect to Ray: {e}\")\n    finally:\n        ray.shutdown()\n\
+          \    try:\n        response = requests.get(MLFLOW_ADDRESS)\n        if response.status_code\
+          \ != 200:\n            raise ConnectionError(\"MLflow server is not reachable\"\
+          )\n        print(\"Successfully connected to MLflow server\")\n    except\
+          \ Exception as e:\n        raise RuntimeError(f\"Failed to connect to MLflow:\
+          \ {e}\")\n    return \"Connectivity verified\"\n\n"
         image: python:3.11-slim
     exec-run-distrt:
       container:
@@ -74,10 +123,11 @@ deploymentSpec:
           \ *\n\ndef run_distrt() -> str:\n    \"\"\"Initializes Ray, creates custom_generator.py,\
           \ and submits Ray tasks inside the Kubeflow step.\"\"\"\n    import os\n\
           \    import ray\n    import mlflow\n    import sys\n    from datetime import\
-          \ datetime\n\n    working_directory = \"/tmp/ray_workdir\"\n    os.makedirs(working_directory,\
-          \ exist_ok=True)\n\n    # Define the content of custom_generator.py\n  \
-          \  custom_generator_code = \"\"\"\nimport torch\nfrom transformers import\
-          \ AutoModelForCausalLM, AutoTokenizer\nimport mlflow\n\ndef download_mlflow_model(experiment_name='HuggingFaceTB',\
+          \ datetime\n    import json\n\n    working_directory = \"/tmp/ray_workdir\"\
+          \n    os.makedirs(working_directory, exist_ok=True)\n\n    # Define the\
+          \ content of custom_generator.py\n    custom_generator_code = \"\"\"\nimport\
+          \ torch\nfrom transformers import AutoModelForCausalLM, AutoTokenizer\n\
+          import mlflow\n\ndef download_mlflow_model(experiment_name='HuggingFaceTB',\
           \ dest_path='SmolLM2-135M-Instruct'):\n    client = mlflow.tracking.MlflowClient()\n\
           \    experiment = client.get_experiment_by_name(experiment_name)\n    runs\
           \ = client.search_runs(experiment.experiment_id, order_by=[\"start_time\
@@ -113,10 +163,10 @@ deploymentSpec:
           \     return\n        with open(output_file, \"w\") as outfile:\n      \
           \      for file in jsonl_files:\n                with open(file, \"r\")\
           \ as infile:\n                    for line in infile:\n                \
-          \        line = line.strip()  # Remove extra whitespace\n\n            \
-          \            if not line:  # Ignore empty lines\n                      \
-          \      continue\n\n                        try:\n                      \
-          \      json.loads(line)  # Validate JSON\n                            outfile.write(line\
+          \        line = line.strip()  # Remove extra whitespace\n              \
+          \          if not line:  # Ignore empty lines\n                        \
+          \    continue\n                        try:\n                          \
+          \  json.loads(line)  # Validate JSON\n                            outfile.write(line\
           \ + \"\\n\")  # Ensure each JSON object is on a separate line\n        \
           \                except json.JSONDecodeError as e:\n                   \
           \         print(f\"Skipping malformed JSON in {file}: {e} \u2192 {line}\"\
@@ -136,10 +186,11 @@ deploymentSpec:
           \        combine_jsonl_from_dir('./combined_logs', 'combined_logs.jsonl')\n\
           \        write_report_digest('combined_logs.jsonl', './final_report.html')\n\
           \        print(os.listdir())\n        print(\"HTML contents writtten to\
-          \ final_report.html\")\n        mlflow.log_artifact('./final_report.html')\n\
-          \n\n    # Start MLflow experiment and submit Ray tasks\n    mlflow.set_experiment(\"\
-          garak_runs\")\n    print(\"MLflow Debugging Information\")\n    print(f\"\
-          Tracking URI: {mlflow.get_tracking_uri()}\")\n    with mlflow.start_run(run_name=datetime.now().strftime(\"\
+          \ final_report.html\")\n        with mlflow.start_run(run_id=mlflow_runid):\n\
+          \            mlflow.log_artifact('./final_report.html')\n\n\n    # Start\
+          \ MLflow experiment and submit Ray tasks\n    mlflow.set_experiment(\"garak_runs\"\
+          )\n    print(\"MLflow Debugging Information\")\n    print(f\"Tracking URI:\
+          \ {mlflow.get_tracking_uri()}\")\n    with mlflow.start_run(run_name=datetime.now().strftime(\"\
           %Y-%m-%d_%H-%M-%S\")) as run:\n        print(f\"MLflow Run Started: {run.info.run_id}\"\
           )\n        mlflow_runid = run.info.run_id\n        probes_list = ['grandma.Substances',\
           \ 'grandma.Slurs', 'grandma.Win10', 'lmrc.Bullying', 'lmrc.Profanity']\n\
@@ -161,11 +212,20 @@ root:
         - run-distrt
         taskInfo:
           name: post-process
+      preflight-checks:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-preflight-checks
+        taskInfo:
+          name: preflight-checks
       run-distrt:
         cachingOptions:
           enableCache: true
         componentRef:
           name: comp-run-distrt
+        dependentTasks:
+        - preflight-checks
         taskInfo:
           name: run-distrt
 schemaVersion: 2.1.0
