@@ -3,6 +3,7 @@
 A Kubernetes-native reference architecture for performing and tracking distributed GenAI Red Teaming using open-source technologies such as Garak, Ray and MLFlow
 
 ## What is MADRIGAL?
+![](assets/archi/archi.png)
 Modular Architecture for Distributed Red TeamIng on GenerAtive LLMs (MADRIGAL) is a reference architecture that pieces together open-source technologies for performing GenAI Red Teaming in a distributed manner on Kubernetes. It employs the following:
 
 - [Garak](https://github.com/NVIDIA/garak) for performing GenAI Red Teaming
@@ -10,28 +11,24 @@ Modular Architecture for Distributed Red TeamIng on GenerAtive LLMs (MADRIGAL) i
 - [Kubeflow Pipelines](https://github.com/kubeflow/pipelines) for making the Red Teaming operationally reproducible and scheduled if necessary
 - [MLflow](https://github.com/mlflow/mlflow) for keeping track of the resulting hit logs and reports generated
 
-## Architecture and Components
-![](assets/archi/archi.png)
 
 ## Key Features
 
-- **Scalability**: Leverages KubeRay for running distributed tasks, making it easy to scale up or down based on load.
 - **Reproducibility**: All infrastructure is declared via YAML files in `k8s/argocd_apps`, which Argo CD uses to automatically synchronize and deploy your applications.
 - **Modularity**: The pipeline consists of discrete components (`preflight_checks`, `run_distrt`, and `post_process`) that can be reused or extended.
+- **Scalability**: Leverages KubeRay for running distributed tasks, making it easy to scale up or down based on load.
 - **Experiment Tracking**: Integrates with MLflow to record runs, artifacts, and logs of your distributed red-teaming tasks.
 - **Customizable**: Easily switch out or add new probes in `distributed_redteaming.ipynb` or `distrt_pipeline.py` to target the specific vulnerabilities you want to test.
 
----
 
 ## Setup Guide
-
 For a step-by-step installation guide, refer to [SETUP.md](SETUP.md). It explains:
 
 1. How to create a **multi-node MicroK8s cluster** on services like DigitalOcean or other Kubernetes providers.  
 2. How to install **Argo CD** and apply the YAML files in `k8s/argocd_apps` to set up Kubeflow Pipelines, KubeRay, MLflow and Argo Workflows.
 3. Tips for ensuring you have adequate resources (CPU, RAM) before hosting large language models and other demanding components.
 
----
+
 
 ## Code Overview
 
@@ -65,7 +62,6 @@ Below is a table describing the main code-related files and folders in this repo
 4. **Know Your Probes and Prioritize**  
    Not all probes are equally relevant. If you’re building an FAQ chatbot, a hallucination-focused test might be less critical than a bias or toxicity probe. Tailor your red-teaming approach based on the application’s domain and risk profile.
 
----
 
 ## Usage
 
@@ -88,10 +84,7 @@ Below is a table describing the main code-related files and folders in this repo
    - Inspect the final consolidated HTML reports and logs.  
    - Adjust your list of probes, model versions, or pipeline steps as needed.
 
----
 
 ## License
 
 This project is licensed under the terms of the [LICENSE](LICENSE) file in this repository.
-
----
