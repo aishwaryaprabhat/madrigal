@@ -5,13 +5,10 @@ A Kubernetes-native reference architecture for performing and tracking distribut
 ## What is MADRIGAL?
 Modular Architecture for Distributed Red TeamIng on GenerAtive LLMs (MADRIGAL) is a reference architecture that pieces together open-source technologies for performing GenAI Red Teaming in a distributed manner on Kubernetes. It employs the following:
 
-Garak for performing GenAI Red Teaming
-
-Ray for running the Red Teaming in a distributed manner
-
-Kubeflow pipelines for making the Red Teaming operationally reproducible and scheduled if necessary
-
-MLflow for keeping track of the resulting hit logs and reports generated
+- [Garak](https://github.com/NVIDIA/garak) for performing GenAI Red Teaming
+- [Ray](https://github.com/ray-project/ray) for running the Red Teaming in a distributed manner
+- [Kubeflow Pipelines](https://github.com/kubeflow/pipelines) for making the Red Teaming operationally reproducible and scheduled if necessary
+- [MLflow](https://github.com/mlflow/mlflow) for keeping track of the resulting hit logs and reports generated
 
 ## Architecture and Components
 ![](assets/archi/archi.png)
